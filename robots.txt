@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://hamzamozy192-tech.github.io/FOCUS-APP./sitemap.xml
