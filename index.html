@@ -217,7 +217,7 @@
             z-index: 2; margin-bottom: 6px;
         }
         .mindmap-day-group { width: 100%; margin-top: 14px; }
-        .mindmap-day-head {
+                .mindmap-day-head {
             display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 30px;
             font-size: 13px; font-weight: 900; color: #fff; margin-bottom: 10px;
             background: #12233c; border: 1px solid #24405f;
@@ -230,11 +230,16 @@
         .mindmap-node b { color: #00d4ff; font-size: 11px; margin-right: 4px; }
         .mindmap-empty { color: #5d7a9c; }
         .empty-hint { text-align: center; color: #5d7a9c; font-size: 13px; font-weight: 700; padding: 24px 10px; }
+        
+        /* === التعديلات الجديدة للأيام (فاضي / متوسط) === */
         .mindmap-day-head.free { background: rgba(52,199,89,.1); border-color: #1f5b3f; color: #6dffb0; }
+        .mindmap-day-head.medium { background: rgba(255,180,0,.15); border-color: #5a4a1f; color: #ffd76a; }
+        
         .mindmap-free-note {
             padding: 9px 14px; border-radius: 14px; font-size: 12.5px; font-weight: 700; color: #6dffb0;
             background: rgba(52,199,89,.08); border: 1px dashed #1f5b3f;
         }
+        .bestday-badge.medium { border-color: #5a4a1f; color: #ffd76a; background: rgba(255,180,0,.15); }
 
         /* ========================= BEST DAYS ========================== */
         .bestdays-list { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
@@ -1971,20 +1976,29 @@ document.addEventListener("DOMContentLoaded", function () {
             mindmapWrap.innerHTML = '<div class="empty-hint">لا توجد دروس بعد.<br>أضف دروسك من "جدول الدروس" لتظهر هنا كخريطة ذهنية منظمة — والأيام الفاضية هتبان تلقائيًا.</div>';
             return;
         }
-        var html = '<div class="mindmap-center">🎯 دروسي</div>';
-        DAYS_ORDER.forEach(function (day) {
+       var html = '<div class="mindmap-center">🎯 مواعيدي</div>';
+               DAYS_ORDER.forEach(function (day) {
             var dayCourses = courses.filter(function (c) { return c.day === day; })
                 .sort(function (a, b) { return a.time.localeCompare(b.time); });
+            
             if (!dayCourses.length) {
                 html += '<div class="mindmap-day-group"><div class="mindmap-day-head free">🟢 ' + day + ' — يوم فاضي</div>' +
-                    '<div class="mindmap-free-note">مفيش دروس مسجلة — وقت ممتاز للمذاكرة الحرة أو المراجعة.</div></div>';
+                    '<div class="mindmap-free-note">مفيش مواعيد مسجلة — وقت ممتاز للمذاكرة الحرة أو المراجعة.</div></div>';
                 return;
             }
-            html += '<div class="mindmap-day-group"><div class="mindmap-day-head">📅 ' + day + ' (' + dayCourses.length + ')</div>';
+            
+            if (dayCourses.length <= 2) {
+                html += '<div class="mindmap-day-group"><div class="mindmap-day-head medium">🟡 ' + day + ' — يوم مذاكرة متوسطة</div>';
+            } else {
+                html += '<div class="mindmap-day-group"><div class="mindmap-day-head">📅 ' + day + ' (' + dayCourses.length + ' موعد)</div>';
+            }
+            
             html += '<div class="mindmap-branches">';
             dayCourses.forEach(function (c) {
                 html += '<div class="mindmap-node"><b>' + c.time + '</b>' + escapeHtml(c.title) + '</div>';
             });
+            html += '</div></div>';
+        });
             html += '</div></div>';
         });
         mindmapWrap.innerHTML = html;
@@ -2006,8 +2020,15 @@ document.addEventListener("DOMContentLoaded", function () {
             var pct = max > 0 ? Math.round((mins / max) * 100) : 0;
             var isTop = max > 0 && mins === max;
             var label = mins >= 60 ? (mins / 60).toFixed(1) + " س" : mins + " د";
-            var busy = loadByDay[i];
-            var badge = busy === 0 ? '<span class="bestday-badge">🟢 فاضي</span>' : '<span class="bestday-badge busy">📚 ' + busy + ' درس</span>';
+                        var busy = loadByDay[i];
+            var badge = '';
+            if (busy === 0) {
+                badge = '<span class="bestday-badge">🟢 فاضي</span>';
+            } else if (busy <= 2) {
+                badge = '<span class="bestday-badge medium">🟡 مذاكرة متوسطة</span>';
+            } else {
+                badge = '<span class="bestday-badge busy">📚 ' + busy + ' موعد</span>';
+            }
             html += '<div class="bestday-row">' +
                 '<div class="bestday-name">' + name + '</div>' + badge +
                 '<div class="bestday-bar-bg"><div class="bestday-bar-fill ' + (isTop ? "top" : "") + '" style="width:' + pct + '%"></div></div>' +
@@ -2124,6 +2145,120 @@ document.addEventListener("DOMContentLoaded", function () {
     renderBestDays();
     updateNextLesson();
 });
+    /* ========================= PRAYER TIMES ========================== */
+const prayerCitySelect = document.getElementById("prayerCitySelect");
+const egyptGovernorates = [
+    "القاهرة", "الجيزة", "الإسكندرية", "الدقهلية", "البحر الأحمر", "البحيرة", "الفيوم", "الغربية",
+    "الإسماعيلية", "المنوفية", "المنيا", "القليوبية", "الوادي الجديد", "السويس", "أسوان", "أسيوط",
+    "بني سويف", "بورسعيد", "دمياط", "الشرقية", "جنوب سيناء", "كفر الشيخ", "مطروح", "الأقصر", "قنا", "شمال سيناء", "سوهاج"
+];
+
+// 1. ملء القائمة بالمحافظات
+egyptGovernorates.forEach(city => {
+    const opt = document.createElement("option");
+    opt.value = city;
+    opt.textContent = city;
+    prayerCitySelect.appendChild(opt);
+});
+
+// 2. تحميل المحافظة المحفوظة مسبقاً
+const savedCity = localStorage.getItem("focusPrayerCity");
+if (savedCity) {
+    prayerCitySelect.value = savedCity;
+    fetchPrayerTimes(savedCity);
+}
+
+// 3. زر الحفظ والتحديث
+document.getElementById("savePrayerCityBtn").onclick = function() {
+    const city = prayerCitySelect.value;
+    if (!city) {
+        showToast("يرجى اختيار المحافظة أولاً", "warning");
+        return;
+    }
+    localStorage.setItem("focusPrayerCity", city);
+    fetchPrayerTimes(city);
+    showToast("تم حفظ المحافظة وتحديث المواقيت بنجاح", "success");
+};
+
+// 4. دالة جلب المواقيت من API
+async function fetchPrayerTimes(city) {
+    const display = document.getElementById("prayerTimesDisplay");
+    const loading = document.getElementById("prayerLoading");
+    const error = document.getElementById("prayerError");
+    const grid = document.getElementById("prayerGrid");
+    const dateDisplay = document.getElementById("prayerDateDisplay");
+
+    display.style.display = "none";
+    error.style.display = "none";
+    loading.style.display = "block";
+
+    try {
+        // Method 5 = الهيئة المصرية العامة للمساحة
+        const response = await fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=Egypt&method=5`);
+        const data = await response.json();
+        
+        if (data.code === 200) {
+            const timings = data.data.timings;
+            const hijriDate = data.data.date.hijri;
+            const gregorianDate = data.data.date.readable;
+            
+            dateDisplay.textContent = `${gregorianDate} | ${hijriDate.day} ${hijriDate.month.ar} ${hijriDate.year}`;
+            
+            const prayers = [
+                { key: "Fajr", name: "الفجر", icon: "🌅" },
+                { key: "Dhuhr", name: "الظهر", icon: "☀️" },
+                { key: "Asr", name: "العصر", icon: "🌤️" },
+                { key: "Maghrib", name: "المغرب", icon: "🌇" },
+                { key: "Isha", name: "العشاء", icon: "🌙" }
+            ];
+
+            grid.innerHTML = prayers.map(p => `
+                <div class="stat-box" style="padding: 16px 8px; border-radius: 16px;">
+                    <div style="font-size: 24px; margin-bottom: 6px;">${p.icon}</div>
+                    <strong style="font-size: 18px; color: #00d4ff;">${timings[p.key]}</strong>
+                    <span style="font-size: 13px; color: #b8c7dc; margin-top: 4px; display:block;">${p.name}</span>
+                </div>
+            `).join("");
+
+            loading.style.display = "none";
+            display.style.display = "block";
+        } else {
+            throw new Error("API Error");
+        }
+    } catch (err) {
+        console.error("Prayer times fetch error:", err);
+        loading.style.display = "none";
+        error.style.display = "block";
+    }
+}
 </script>
+    <!-- Modal: Prayer Times -->
+<div id="modalPrayer" class="modal-page">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>🕌 مواقيت الصلاة</h3>
+            <button class="icon-btn" onclick="closeModal('modalPrayer')" style="width:36px;height:36px;font-size:18px;">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="schedule-form" style="margin-bottom: 20px;">
+                <label style="font-size:13px; color:#8ca6ce; font-weight:700; margin-bottom:6px; display:block;">اختر محافظتك:</label>
+                <select id="prayerCitySelect" class="form-input" style="width:100%; padding:12px; cursor:pointer;">
+                    <option value="">-- اختر المحافظة --</option>
+                </select>
+                <button id="savePrayerCityBtn" class="btn-add-course" style="margin-top:10px;">حفظ وتحديث المواقيت</button>
+            </div>
+            
+            <div id="prayerLoading" style="text-align:center; padding:20px; color:#7b93b4; display:none;">جاري جلب المواقيت...</div>
+            <div id="prayerError" style="text-align:center; padding:20px; color:#ff3b30; display:none;">تعذر جلب المواقيت، تأكد من الاتصال بالإنترنت.</div>
+            
+            <div id="prayerTimesDisplay" style="display:none;">
+                <div style="text-align:center; margin-bottom:16px; color:#7b93b4; font-size:13px; font-weight:700;" id="prayerDateDisplay"></div>
+                <div class="stats-grid" id="prayerGrid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px;">
+                    <!-- سيتم ملء هذا الجزء تلقائياً -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
