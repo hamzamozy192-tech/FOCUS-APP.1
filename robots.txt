@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://focus-app-1-1.vercel.app/sitemap.xml
+Sitemap: https://hamzamozy192-tech.github.io/FOCUS-APP./sitemap.xml

@@ -1,5 +1,5 @@
 /* FOCUS service worker - offline support (all assets are local, no internet needed) */
-var CACHE = "focus-cache-v10";
+var CACHE = "focus-cache-v11";
 
 var ASSETS = [
   "./",
@@ -13,6 +13,7 @@ var ASSETS = [
   "./logo.png",
   "./focus.mp3",
   "./alarm.mp3",
+  "./athan.mp3",
   "./rain.mp3",
   "./wind.mp3",
   "./storm.mp3",

@@ -245,6 +245,7 @@
             border: 1px solid #1f5b3f; color: #6dffb0; background: rgba(52,199,89,.1); white-space: nowrap;
         }
         .bestday-badge.busy { border-color: #3a2d1a; color: #ffd76a; background: rgba(255,180,0,.08); }
+        .bestday-badge.medium { border-color: #1c3454; color: #7fd8ff; background: rgba(0,180,255,.08); }
         .bestday-bar-bg { flex: 1; height: 16px; background: #050a14; border: 1px solid #162438; border-radius: 8px; overflow: hidden; }
         .bestday-bar-fill { height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg,#00d4ff,#0052ff); transition: width .5s ease; }
         .bestday-bar-fill.top { background: linear-gradient(90deg,#ffd76a,#ffb300); }
@@ -416,6 +417,20 @@
             padding: 12px 14px; border-radius: 12px; border: 1px solid #1a293e; margin-bottom: 16px; gap: 8px;
         }
         .notification-toggle-box span { font-size: 13px; font-weight: 800; color: #fff; }
+        .prayer-box {
+            background: linear-gradient(135deg,#10233c,#0a1626); border: 1px solid #1c3652;
+            border-radius: 16px; padding: 14px; margin-bottom: 16px;
+        }
+        .prayer-box-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+        .prayer-box-head > span { font-size: 14px; font-weight: 900; color: #fff; flex: none; }
+        .prayer-gov-select { flex: 1; min-width: 0; font-size: 12px; padding: 8px; }
+        .prayer-times-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+        .prayer-time-cell { background: #050a14; border: 1px solid #162438; border-radius: 10px; padding: 8px 4px; text-align: center; }
+        .prayer-time-cell.active-now { border-color: #00d4ff; background: rgba(0,212,255,.1); }
+        .prayer-time-cell .pt-name { font-size: 10px; font-weight: 800; color: #7b93b4; }
+        .prayer-time-cell .pt-time { font-size: 12px; font-weight: 900; color: #fff; direction: ltr; margin-top: 2px; }
+        .prayer-hint { font-size: 10.5px; color: #5c7192; line-height: 1.6; margin-top: 10px; }
+        @media (max-width: 380px) { .prayer-times-grid { grid-template-columns: repeat(3, 1fr); } }
         .schedule-list { display: flex; flex-direction: column; gap: 10px; list-style: none; }
         .schedule-card {
             display: flex; justify-content: space-between; align-items: center; background: #050a14;
@@ -448,6 +463,10 @@
         body.light-mode .schedule-card,
         body.light-mode .volume-row,
         body.light-mode .notification-toggle-box { background: #f8fafc; border-color: #cbd5e1; }
+        body.light-mode .prayer-box { background: linear-gradient(135deg,#eaf4ff,#f8fafc); border-color: #cbe0f7; }
+        body.light-mode .prayer-box-head > span { color: #0f172a; }
+        body.light-mode .prayer-time-cell { background: #fff; border-color: #dbe4ee; }
+        body.light-mode .prayer-time-cell .pt-time { color: #0f172a; }
         body.light-mode .form-input { background: #fff; border-color: #cbd5e1; color: #0f172a; }
 
         /* ========================= FULLSCREEN ========================== */
@@ -656,6 +675,11 @@
     <source src="alarm.mp3" type="audio/mpeg">
 </audio>
 
+<!-- Hidden Athan audio (full call to prayer, played once per prayer time) -->
+<audio id="athanAudio" preload="auto">
+    <source src="athan.mp3" type="audio/mpeg">
+</audio>
+
 <main id="app">
 
     <header class="header">
@@ -723,7 +747,7 @@
     </div>
     <div class="menu-items-list">
         <button class="menu-tab-btn" data-target-modal="modalTasks"><span>📋 قائمة المهام</span><span>➔</span></button>
-        <button class="menu-tab-btn" data-target-modal="modalSchedule"><span>📚 جدول الدروس والتنبيهات</span><span>➔</span></button>
+        <button class="menu-tab-btn" data-target-modal="modalSchedule"><span>📅 مواعيدي والتنبيهات</span><span>➔</span></button>
         <button class="menu-tab-btn" data-target-modal="modalMindmap"><span>🧠 الخريطة الذهنية للدروس</span><span>➔</span></button>
         <button class="menu-tab-btn" data-target-modal="modalBestDays"><span>📈 أفضل أيام المذاكرة</span><span>➔</span></button>
         <button class="menu-tab-btn" data-target-modal="modalSounds"><span>🎧 أصوات التركيز</span><span>➔</span></button>
@@ -816,8 +840,20 @@
 <!-- SCHEDULE -->
 <div class="modal-page" id="modalSchedule">
     <div class="modal-card">
-        <div class="modal-header"><h3>📚 جدول الدروس والتنبيهات</h3><button class="icon-btn closeModalBtn">✕</button></div>
+        <div class="modal-header"><h3>📅 مواعيدي والتنبيهات</h3><button class="icon-btn closeModalBtn">✕</button></div>
         <div class="modal-body">
+            <div class="prayer-box">
+                <div class="prayer-box-head">
+                    <span>🕌 مواقيت الصلاة</span>
+                    <select id="governorateSelect" class="form-input prayer-gov-select"></select>
+                </div>
+                <div class="prayer-times-grid" id="prayerTimesGrid"></div>
+                <div class="notification-toggle-box" style="margin-top:10px;">
+                    <span>🔔 أذان + تنبيه الصلاة والأذكار</span>
+                    <button class="sound-play-btn" id="requestPrayerNotifBtn">تفعيل</button>
+                </div>
+                <div class="prayer-hint">المواقيت تقريبية بالحساب الفلكي (زاوية 19.5°/17.5° — نفس أساس هيئة المساحة المصرية)، وقد تختلف دقيقة أو اثنتين عن مسجدك المحلي.</div>
+            </div>
             <div class="notification-toggle-box">
                 <span>🔔 إشعارات مواعيد الدروس</span>
                 <button class="sound-play-btn" id="requestNotifBtn">تفعيل</button>
@@ -1666,7 +1702,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     document.getElementById("addCourseBtn").onclick = function () {
         var title = courseTitle.value.trim(), day = courseDay.value, time = courseTime.value;
-        if (!title || !time) { alert("يرجى إدخال اسم الدرس والوقت!"); return; }
+        if (!title || !time) { showToast("يرجى إدخال اسم الموعد والوقت!", "warning"); return; }
         courses.push({ id: Date.now().toString(), title: title, day: day, time: time });
         courseTitle.value = ""; courseTime.value = "";
         renderSchedule();
@@ -1679,13 +1715,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     };
     requestNotifBtn.onclick = function () {
-        if (!("Notification" in window)) { alert("هذا الجهاز لا يدعم الإشعارات."); return; }
+        if (!("Notification" in window)) { showToast("هذا الجهاز لا يدعم الإشعارات.", "warning"); return; }
         Notification.requestPermission().then(function (perm) {
             if (perm === "granted") {
                 requestNotifBtn.textContent = "مفعل ✔️";
                 requestNotifBtn.style.background = "#34c759";
                 requestNotifBtn.style.borderColor = "#34c759";
-            } else { alert("لم يتم السماح بالإشعارات."); }
+            } else { showToast("لم يتم السماح بالإشعارات.", "warning"); }
         });
     };
     if (("Notification" in window) && Notification.permission === "granted") {
@@ -1693,6 +1729,253 @@ document.addEventListener("DOMContentLoaded", function () {
         requestNotifBtn.style.background = "#34c759";
         requestNotifBtn.style.borderColor = "#34c759";
     }
+
+    /* ========================= PRAYER TIMES (offline astronomical calculation) =========================
+       Method: Fajr 19.5° / Isha 17.5° — same basis as Egypt's General Authority of Survey.
+       Times are a best-effort approximation and can be a minute or two off from your local mosque. */
+    var GOVERNORATES = [
+        { name: "القاهرة", lat: 30.0444, lng: 31.2357 },
+        { name: "الجيزة", lat: 30.0131, lng: 31.2089 },
+        { name: "الإسكندرية", lat: 31.2001, lng: 29.9187 },
+        { name: "الدقهلية", lat: 31.0409, lng: 31.3785 },
+        { name: "البحر الأحمر", lat: 27.2579, lng: 33.8116 },
+        { name: "البحيرة", lat: 31.0335, lng: 30.4682 },
+        { name: "الفيوم", lat: 29.3084, lng: 30.8441 },
+        { name: "الغربية", lat: 30.7865, lng: 31.0004 },
+        { name: "الإسماعيلية", lat: 30.5965, lng: 32.2715 },
+        { name: "المنوفية", lat: 30.5545, lng: 31.0095 },
+        { name: "المنيا", lat: 28.1099, lng: 30.7503 },
+        { name: "القليوبية", lat: 30.4667, lng: 31.2000 },
+        { name: "الوادي الجديد", lat: 25.4514, lng: 30.5467 },
+        { name: "السويس", lat: 29.9668, lng: 32.5498 },
+        { name: "أسوان", lat: 24.0889, lng: 32.8998 },
+        { name: "أسيوط", lat: 27.1809, lng: 31.1837 },
+        { name: "بني سويف", lat: 29.0661, lng: 31.0994 },
+        { name: "بورسعيد", lat: 31.2653, lng: 32.3019 },
+        { name: "دمياط", lat: 31.4165, lng: 31.8133 },
+        { name: "الشرقية", lat: 30.5877, lng: 31.5020 },
+        { name: "جنوب سيناء", lat: 27.9158, lng: 34.3300 },
+        { name: "كفر الشيخ", lat: 31.1107, lng: 30.9388 },
+        { name: "مطروح", lat: 31.3543, lng: 27.2373 },
+        { name: "الأقصر", lat: 25.6872, lng: 32.6396 },
+        { name: "قنا", lat: 26.1551, lng: 32.7160 },
+        { name: "شمال سيناء", lat: 31.1316, lng: 33.7984 },
+        { name: "سوهاج", lat: 26.5569, lng: 31.6948 }
+    ];
+    var EGYPT_TZ = 2; // UTC+2 (Egypt Standard Time)
+    var PRAYER_NAMES = { fajr: "الفجر", sunrise: "الشروق", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" };
+
+    function dtr(d) { return d * Math.PI / 180; }
+    function rtd(r) { return r * 180 / Math.PI; }
+    function dsin(d) { return Math.sin(dtr(d)); }
+    function dcos(d) { return Math.cos(dtr(d)); }
+    function dtan(d) { return Math.tan(dtr(d)); }
+    function darcsin(x) { return rtd(Math.asin(x)); }
+    function darccos(x) { return rtd(Math.acos(x)); }
+    function darctan2(y, x) { return rtd(Math.atan2(y, x)); }
+    function darccot(x) { return rtd(Math.atan(1 / x)); }
+    function fixAngle(a) { a = a - 360 * Math.floor(a / 360); return a < 0 ? a + 360 : a; }
+    function fixHour(a) { a = a - 24 * Math.floor(a / 24); return a < 0 ? a + 24 : a; }
+    function julianDate(y, m, d) {
+        if (m <= 2) { y -= 1; m += 12; }
+        var A = Math.floor(y / 100);
+        var B = 2 - A + Math.floor(A / 4);
+        return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+    }
+    function sunPosition(jd) {
+        var D = jd - 2451545.0;
+        var g = fixAngle(357.529 + 0.98560028 * D);
+        var q = fixAngle(280.459 + 0.98564736 * D);
+        var L = fixAngle(q + 1.915 * dsin(g) + 0.020 * dsin(2 * g));
+        var e = 23.439 - 0.00000036 * D;
+        var RA = fixHour(darctan2(dcos(e) * dsin(L), dcos(L)) / 15);
+        var eqt = q / 15 - RA;
+        var decl = darcsin(dsin(e) * dsin(L));
+        return { declination: decl, equation: eqt };
+    }
+    function computeDhuhr(jd, lng, tz) {
+        var eqt = sunPosition(jd).equation;
+        return fixHour(12 - eqt + tz - lng / 15) + 0.0833;
+    }
+    function sunAngleTime(angle, jd, lat, lng, tz, ccw) {
+        var decl = sunPosition(jd).declination;
+        var noon = computeDhuhr(jd, lng, tz);
+        var val = (-dsin(angle) - dsin(lat) * dsin(decl)) / (dcos(lat) * dcos(decl));
+        var t = 1 / 15 * darccos(val);
+        return noon + (ccw ? -t : t);
+    }
+    function asrTime(factor, jd, lat, lng, tz) {
+        var decl = sunPosition(jd).declination;
+        var noon = computeDhuhr(jd, lng, tz);
+        var angle = -darccot(factor + dtan(Math.abs(lat - decl)));
+        var val = (-dsin(angle) - dsin(lat) * dsin(decl)) / (dcos(lat) * dcos(decl));
+        var t = 1 / 15 * darccos(val);
+        return noon + t;
+    }
+    function hoursToHHMM(h) {
+        h = fixHour(h);
+        var hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+        if (mm === 60) { mm = 0; hh += 1; }
+        return String(hh % 24).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+    }
+    function computePrayerTimes(y, m, d, lat, lng, tz) {
+        var jd = julianDate(y, m, d);
+        return {
+            fajr: hoursToHHMM(sunAngleTime(19.5, jd, lat, lng, tz, true)),
+            sunrise: hoursToHHMM(sunAngleTime(0.833, jd, lat, lng, tz, true)),
+            dhuhr: hoursToHHMM(computeDhuhr(jd, lng, tz)),
+            asr: hoursToHHMM(asrTime(1, jd, lat, lng, tz)),
+            maghrib: hoursToHHMM(sunAngleTime(0.833, jd, lat, lng, tz, false)),
+            isha: hoursToHHMM(sunAngleTime(17.5, jd, lat, lng, tz, false))
+        };
+    }
+
+    var govSelect = document.getElementById("governorateSelect");
+    var prayerGrid = document.getElementById("prayerTimesGrid");
+    var requestPrayerNotifBtn = document.getElementById("requestPrayerNotifBtn");
+    var todayPrayerTimes = null;
+
+    GOVERNORATES.forEach(function (g) {
+        var opt = document.createElement("option");
+        opt.value = g.name; opt.textContent = g.name;
+        govSelect.appendChild(opt);
+    });
+    var savedGov = localStorage.getItem("focusGovernorate") || "القاهرة";
+    govSelect.value = savedGov;
+
+    function renderPrayerTimes() {
+        var govName = govSelect.value;
+        var gov = GOVERNORATES.find(function (g) { return g.name === govName; }) || GOVERNORATES[0];
+        localStorage.setItem("focusGovernorate", gov.name);
+        var now = new Date();
+        todayPrayerTimes = computePrayerTimes(now.getFullYear(), now.getMonth() + 1, now.getDate(), gov.lat, gov.lng, EGYPT_TZ);
+        var order = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
+        var nowHM = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+        prayerGrid.innerHTML = order.map(function (k) {
+            return '<div class="prayer-time-cell' + (todayPrayerTimes[k] === nowHM ? " active-now" : "") + '">' +
+                '<div class="pt-name">' + PRAYER_NAMES[k] + '</div><div class="pt-time">' + todayPrayerTimes[k] + '</div></div>';
+        }).join("");
+    }
+    govSelect.onchange = renderPrayerTimes;
+    renderPrayerTimes();
+
+    requestPrayerNotifBtn.onclick = function () {
+        if (!("Notification" in window)) { showToast("هذا الجهاز لا يدعم الإشعارات.", "warning"); return; }
+        Notification.requestPermission().then(function (perm) {
+            if (perm === "granted") {
+                requestPrayerNotifBtn.textContent = "مفعل ✔️";
+                requestPrayerNotifBtn.style.background = "#34c759";
+                requestPrayerNotifBtn.style.borderColor = "#34c759";
+                localStorage.setItem("focusPrayerNotif", "1");
+                showToast("تم تفعيل تنبيهات الصلاة والأذكار 🕌", "success");
+            } else { showToast("لم يتم السماح بالإشعارات.", "warning"); }
+        });
+    };
+    if (("Notification" in window) && Notification.permission === "granted" && localStorage.getItem("focusPrayerNotif") === "1") {
+        requestPrayerNotifBtn.textContent = "مفعل ✔️";
+        requestPrayerNotifBtn.style.background = "#34c759";
+        requestPrayerNotifBtn.style.borderColor = "#34c759";
+    }
+
+    var prayerFiredToday = {};
+    var athkarFiredToday = {};
+    var athanAudio = document.getElementById("athanAudio");
+    function playAthan(prayerLabel) {
+        athanAudio.currentTime = 0;
+        athanAudio.volume = 1;
+        athanAudio.play().catch(function () {});
+        if ("mediaSession" in navigator) {
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: "🕌 أذان " + prayerLabel, artist: "FOCUS", album: "مواقيت الصلاة",
+                    artwork: [{ src: "icon-512.png", sizes: "512x512", type: "image/png" }]
+                });
+            } catch (e) {}
+        }
+        var dismiss = showToast("🕌 حان الآن أذان " + prayerLabel, "info", 15000);
+        var stopBtn = document.createElement("button");
+        stopBtn.textContent = "⏹ إيقاف الأذان";
+        stopBtn.style.cssText = "margin-top:8px; padding:7px 14px; border-radius:10px; border:1px solid #1a293e; background:transparent; color:#9db0cc; font-size:12px; font-weight:800; cursor:pointer;";
+        stopBtn.onclick = function () { athanAudio.pause(); athanAudio.currentTime = 0; };
+        var lastToast = toastStack.lastElementChild;
+        if (lastToast) lastToast.appendChild(stopBtn);
+    }
+    function notifyPrayer(title, body) {
+        if (("Notification" in window) && Notification.permission === "granted") {
+            try { new Notification(title, { body: body, icon: "icon-192.png" }); } catch (e) {}
+        }
+        showToast(body, "info", 8000);
+        var a = alarmAudio;
+        if (a) { a.currentTime = 0; a.play().catch(function () {}); setTimeout(function () { a.pause(); a.currentTime = 0; }, 6000); }
+    }
+    function checkPrayerTimes() {
+        if (localStorage.getItem("focusPrayerNotif") !== "1") return;
+        renderPrayerTimes(); // keep times fresh across midnight rollover
+        var now = new Date();
+        var nowHM = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+        var todayKey = now.toDateString();
+        ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach(function (k) {
+            if (todayPrayerTimes[k] === nowHM) {
+                var fireKey = todayKey + "_" + k;
+                if (!prayerFiredToday[fireKey]) {
+                    prayerFiredToday[fireKey] = true;
+                    if (("Notification" in window) && Notification.permission === "granted") {
+                        try { new Notification("🕌 حان وقت الصلاة", { body: "حان الآن وقت صلاة " + PRAYER_NAMES[k], icon: "icon-192.png" }); } catch (e) {}
+                    }
+                    playAthan(PRAYER_NAMES[k]);
+                    if (isFullFocus && isRunning) {
+                        applyFreeExit(); // treat as a prayer break, never a penalized exit
+                        showToast("⏸️ إيقفنا وضع التركيز الكامل مؤقتًا لوقت الصلاة — ابدأ تاني بعد ما تصلي.", "info", 9000);
+                    }
+                }
+            }
+        });
+        // Athkar reminders: after Fajr and after Maghrib (short chime, not the full Athan)
+        [{ key: "fajr", label: "أذكار الصباح 🌅" }, { key: "maghrib", label: "أذكار المساء 🌙" }].forEach(function (item) {
+            if (!todayPrayerTimes[item.key]) return;
+            var parts = todayPrayerTimes[item.key].split(":");
+            var prayerMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            var nowMin = now.getHours() * 60 + now.getMinutes();
+            if (nowMin === prayerMin + 10) {
+                var akey = todayKey + "_" + item.key;
+                if (!athkarFiredToday[akey]) {
+                    athkarFiredToday[akey] = true;
+                    notifyPrayer("📿 " + item.label, "حان وقت " + item.label + " — خصص لها كام دقيقة.");
+                }
+            }
+        });
+    }
+    setInterval(checkPrayerTimes, 30000);
+
+    /* ========================= MOTIVATIONAL + RELIGIOUS MESSAGES WHILE STUDYING ========================== */
+    var MOTIVATIONAL_MESSAGES = [
+        "أنت بتبني نفسك دلوقتي بلبنة صح 💪",
+        "كل دقيقة تركيز هنا هتفرق بكرة 🌱",
+        "استمر، الطريق قربت وأنت أقوى مما تتخيل ✨",
+        "التعب اللي حاسسه دلوقتي هو نفسه اللي هيخليك فخور بعدين 🔥",
+        "خطوة صغيرة النهاردة أحسن من ندم بكرة 🎯",
+        "ركز على المهمة اللي قدامك بس، خطوة خطوة 🧭"
+    ];
+    var RELIGIOUS_MESSAGES = [
+        "﴿وَقُل رَّبِّ زِدْنِي عِلْمًا﴾ — طه: 114",
+        "قال ﷺ: «من سلك طريقًا يلتمس فيه علمًا سهّل الله له به طريقًا إلى الجنة» — رواه مسلم",
+        "«طلب العلم فريضة على كل مسلم» — حديث شريف",
+        "استعن بالله ولا تعجز، ونيّتك في طلب العلم عبادة 🤍",
+        "﴿وَقُل رَّبِّ اشْرَحْ لِي صَدْرِي * وَيَسِّرْ لِي أَمْرِي﴾ — طه: 25-26"
+    ];
+    var lastMessageAt = 0;
+    var messageToggle = true;
+    function maybeShowStudyMessage() {
+        if (!isRunning) return;
+        var now = Date.now();
+        if (now - lastMessageAt < 7 * 60 * 1000) return;
+        lastMessageAt = now;
+        var pool = messageToggle ? MOTIVATIONAL_MESSAGES : RELIGIOUS_MESSAGES;
+        messageToggle = !messageToggle;
+        var msg = pool[Math.floor(Math.random() * pool.length)];
+        showToast(msg, "info", 7000);
+    }
+    setInterval(maybeShowStudyMessage, 60000);
 
     var lastFired = {};
     setInterval(function () {
@@ -1968,10 +2251,10 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderMindmap() {
         if (!mindmapWrap) return;
         if (!courses.length) {
-            mindmapWrap.innerHTML = '<div class="empty-hint">لا توجد دروس بعد.<br>أضف دروسك من "جدول الدروس" لتظهر هنا كخريطة ذهنية منظمة — والأيام الفاضية هتبان تلقائيًا.</div>';
+            mindmapWrap.innerHTML = '<div class="empty-hint">لا توجد دروس بعد.<br>أضف مواعيدك من "مواعيدي" لتظهر هنا كخريطة ذهنية منظمة — والأيام الفاضية هتبان تلقائيًا.</div>';
             return;
         }
-        var html = '<div class="mindmap-center">🎯 دروسي</div>';
+        var html = '<div class="mindmap-center">🎯 مواعيدي</div>';
         DAYS_ORDER.forEach(function (day) {
             var dayCourses = courses.filter(function (c) { return c.day === day; })
                 .sort(function (a, b) { return a.time.localeCompare(b.time); });
@@ -2007,7 +2290,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var isTop = max > 0 && mins === max;
             var label = mins >= 60 ? (mins / 60).toFixed(1) + " س" : mins + " د";
             var busy = loadByDay[i];
-            var badge = busy === 0 ? '<span class="bestday-badge">🟢 فاضي</span>' : '<span class="bestday-badge busy">📚 ' + busy + ' درس</span>';
+            var badge = busy === 0 ? '<span class="bestday-badge">🟢 فاضي</span>'
+                : busy <= 2 ? '<span class="bestday-badge medium">🟡 يوم متوسط (' + busy + ')</span>'
+                : '<span class="bestday-badge busy">🔴 مزدحم (' + busy + ')</span>';
             html += '<div class="bestday-row">' +
                 '<div class="bestday-name">' + name + '</div>' + badge +
                 '<div class="bestday-bar-bg"><div class="bestday-bar-fill ' + (isTop ? "top" : "") + '" style="width:' + pct + '%"></div></div>' +
