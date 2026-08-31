@@ -764,6 +764,8 @@
         <button class="menu-tab-btn" data-target-modal="modalStore"><span>🛍️ متجر الأصوات</span><span>➔</span></button>
         <button class="menu-tab-btn" data-target-modal="modalWeekly"><span>📅 الخطة الأسبوعية</span><span>➔</span></button>
         <button class="menu-tab-btn" data-target-modal="modalStats"><span>⏱️ الأوقات والإحصائيات</span><span>➔</span></button>
+                <button class="menu-tab-btn" data-target-modal="modalPrayer"><span>🕌 مواقيت الصلاة</span><span>➔</span></button>
+        <button class="menu-tab-btn" data-target-modal="modalAdhkar"><span>📿 الأذكار</span><span>➔</span></button>
     </div>
 </aside>
 
@@ -932,6 +934,37 @@
 
 <!-- FULL FOCUS LOCK OVERLAY -->
 <!-- TOAST STACK (professional in-app notifications) -->
+    <div class="modal-page" id="modalPrayer">
+    <div class="modal-card">
+        <div class="modal-header"><h3>🕌 مواقيت الصلاة</h3><button class="icon-btn closeModalBtn">✕</button></div>
+        <div class="modal-body">
+            <div class="schedule-form">
+                <label style="font-size:13px;color:#8ca6ce;font-weight:700;">اختر محافظتك:</label>
+                <select id="prayerCitySelect" class="form-input" style="width:100%;padding:12px;"><option value="">-- اختر المحافظة --</option></select>
+                <button id="savePrayerCityBtn" class="btn-add-course" style="margin-top:10px;">حفظ وتحديث المواقيت</button>
+            </div>
+            <div id="prayerLoading" style="text-align:center;padding:20px;color:#7b93b4;display:none;">جاري جلب المواقيت...</div>
+            <div id="prayerError" style="text-align:center;padding:20px;color:#ff3b30;display:none;">تعذر جلب المواقيت — جرب تاني.</div>
+            <div id="prayerTimesDisplay" style="display:none;">
+                <div id="prayerDateDisplay" style="text-align:center;margin-bottom:16px;color:#7b93b4;font-size:13px;font-weight:700;"></div>
+                <div class="stats-grid" id="prayerGrid" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-page" id="modalAdhkar">
+    <div class="modal-card">
+        <div class="modal-header"><h3>📿 الأذكار</h3><button class="icon-btn closeModalBtn">✕</button></div>
+        <div class="modal-body">
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <button class="btn-add-course adhkar-tab" data-adhkar="morning" style="flex:1;">🌅 أذكار الصباح</button>
+                <button class="btn-add-course adhkar-tab" data-adhkar="evening" style="flex:1;background:#12233c;">🌇 أذكار المساء</button>
+            </div>
+            <div id="adhkarContent" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+    </div>
+</div>
 <div id="toastStack"></div>
 
 <!-- CUSTOM CONFIRM MODAL -->
@@ -995,8 +1028,7 @@ document.addEventListener("DOMContentLoaded", function () {
         ocean:    "ocean.mp3",
         night:    "night.mp3",
         fire:     "fire.mp3",
-        cafe:     "cafe.mp3",
-        chimes:   "chimes.mp3"
+        cafe:     "cafe.mp3"
     };
     /* NOTE: focus.mp3 is intentionally NOT listed here — it is reserved for the
        intro screen only and must never appear as a selectable ambient sound. */
@@ -1011,7 +1043,6 @@ document.addEventListener("DOMContentLoaded", function () {
         night:    { name: "ليل هادئ (صرصور الليل)",  emoji: "🌙", free: false, price: 200, desc: "أجواء ليلية ساكنة بصوت صراصير خفيف." },
         fire:     { name: "مدفأة هادئة",             emoji: "🔥", free: false, price: 250, desc: "فرقعة حطب دافئة تمنح إحساسًا بالراحة." },
         cafe:     { name: "مقهى هادئ",               emoji: "☕", free: false, price: 320, desc: "همهمة مقهى بعيدة تساعد على التركيز العميق." },
-        chimes:   { name: "أجراس هادئة",             emoji: "🎐", free: false, price: 400, desc: "نغمات أجراس رقيقة متناثرة، مثالية للاسترخاء." }
     };
     var alarmAudio = document.getElementById("alarmAudio");
 
@@ -2411,7 +2442,118 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     };
     window.addEventListener("appinstalled", function () { installBtn.classList.remove("show"); });
+    /* ========================= PRAYER (OWN SERVER) + 12H + REMINDERS ========================== */
+    function cleanTime(t){ var m=(t||"").match(/\d{1,2}:\d{2}/); return m?m[0]:""; }
+    function to12h(t){ var hh=cleanTime(t); if(!hh) return t; var p=hh.split(":"); var h=parseInt(p[0],10); var s=h>=12?"م":"ص"; h=h%12; if(h===0)h=12; return h+":"+p[1]+" "+s; }
 
+    var prayerCitySelect = document.getElementById("prayerCitySelect");
+    if (prayerCitySelect) {
+        ["القاهرة","الجيزة","الإسكندرية","الدقهلية","البحر الأحمر","البحيرة","الفيوم","الغربية","الإسماعيلية","المنوفية","المنيا","القليوبية","الوادي الجديد","السويس","أسوان","أسيوط","بني سويف","بورسعيد","دمياط","الشرقية","جنوب سيناء","كفر الشيخ","مطروح","الأقصر","قنا","شمال سيناء","سوهاج"].forEach(function(c){ var o=document.createElement("option"); o.value=c; o.textContent=c; prayerCitySelect.appendChild(o); });
+        var sc = localStorage.getItem("focusPrayerCity");
+        if (sc) { prayerCitySelect.value = sc; fetchPrayerTimes(sc); }
+        document.getElementById("savePrayerCityBtn").onclick = function(){
+            var c = prayerCitySelect.value; if(!c){ showToast("اختر المحافظة الأول","warning"); return; }
+            localStorage.setItem("focusPrayerCity", c); fetchPrayerTimes(c); showToast("تم حفظ المحافظة وتحديث المواقيت ✅","success");
+        };
+    }
+    async function fetchPrayerTimes(city){
+        var display=document.getElementById("prayerTimesDisplay"),loading=document.getElementById("prayerLoading"),error=document.getElementById("prayerError"),grid=document.getElementById("prayerGrid"),dateDisplay=document.getElementById("prayerDateDisplay");
+        if(!display) return;
+        display.style.display="none"; error.style.display="none"; loading.style.display="block";
+        var data=null;
+        try { var r1=await fetch("./api/prayer?city="+encodeURIComponent(city)); var j1=await r1.json(); if(j1&&j1.code===200&&j1.data) data=j1; } catch(e){}
+        if(!data){ try { var r2=await fetch("https://api.aladhan.com/v1/timingsByCity?city="+encodeURIComponent(city)+"&country=Egypt&method=5"); var j2=await r2.json(); if(j2&&j2.code===200&&j2.data) data=j2; } catch(e){} }
+        if(data){
+            var t=data.data.timings, h=data.data.date.hijri;
+            dateDisplay.textContent = data.data.date.readable+" | "+h.day+" "+h.month.ar+" "+h.year;
+            localStorage.setItem("focusPrayerData", JSON.stringify({timings:t}));
+            var P=[{k:"Fajr",n:"الفجر",i:"🌅"},{k:"Dhuhr",n:"الظهر",i:"☀️"},{k:"Asr",n:"العصر",i:"🌤️"},{k:"Maghrib",n:"المغرب",i:"🌇"},{k:"Isha",n:"العشاء",i:"🌙"}];
+            grid.innerHTML = P.map(function(p){ return '<div class="stat-box"><div style="font-size:24px;margin-bottom:6px;">'+p.i+'</div><strong>'+to12h(t[p.k])+'</strong><span>'+p.n+'</span></div>'; }).join("");
+            loading.style.display="none"; display.style.display="block";
+        } else { loading.style.display="none"; error.style.display="block"; }
+    }
+    var prayerFired={};
+    function checkPrayerReminders(){
+        var raw=localStorage.getItem("focusPrayerData"); if(!raw) return;
+        try {
+            var d=JSON.parse(raw), now=new Date(), nowMin=now.getHours()*60+now.getMinutes(), today=now.toDateString();
+            var N={Fajr:"الفجر",Dhuhr:"الظهر",Asr:"العصر",Maghrib:"المغرب",Isha:"العشاء"};
+            Object.keys(N).forEach(function(k){
+                var hh=cleanTime(d.timings[k]); if(!hh) return;
+                var p=hh.split(":"); var pm=parseInt(p[0],10)*60+parseInt(p[1],10); var diff=pm-nowMin;
+                [10,0].forEach(function(lead){
+                    if(diff!==lead) return;
+                    var key=today+"_"+k+"_"+lead; if(prayerFired[key]) return; prayerFired[key]=true;
+                    var msg = lead===0 ? "🕌 حان الآن موعد صلاة "+N[k]+" — "+to12h(hh) : "🕌 باقي "+lead+" دقايق على صلاة "+N[k];
+                    showToast(msg,"success",8000);
+                    if("Notification" in window && Notification.permission==="granted") new Notification("FOCUS 🕌",{body:msg,icon:"icon-192.png"});
+                    if(lead===0&&navigator.vibrate) navigator.vibrate([300,100,300]);
+                });
+            });
+        } catch(e){}
+    }
+    setInterval(checkPrayerReminders,30000);
+
+    function checkAdhkarReminder(){
+        var now=new Date(), t=now.getHours()*60+now.getMinutes(), today=now.toDateString(), type=null;
+        if(t>=240&&t<=360) type="morning"; else if(t>=1020&&t<=1170) type="evening";
+        if(!type) return;
+        var key=today+"_"+type;
+        if(localStorage.getItem("lastAdhkarReminder")===key) return;
+        localStorage.setItem("lastAdhkarReminder",key);
+        var msg = type==="morning" ? "🌅 حان وقت أذكار الصباح — افتح 📿 الأذكار من القائمة واقرأها." : "🌇 حان وقت أذكار المساء — افتح 📿 الأذكار من القائمة واقرأها.";
+        showToast(msg,"success",9000);
+        if("Notification" in window && Notification.permission==="granted") new Notification("FOCUS 📿",{body:msg,icon:"icon-192.png"});
+    }
+    setInterval(checkAdhkarReminder,60000); checkAdhkarReminder();
+
+    /* ========================= ADHKAR CONTENT ========================== */
+    var AYK="اللَّهُ لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ، لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ، لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ، مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ، يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ، وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ، وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ، وَلَا يَئُودُهُ حِفْظُهُمَا، وَهُوَ الْعَلِيُّ الْعَظِيمُ";
+    var IKH="قُلْ هُوَ اللَّهُ أَحَدٌ ۝ اللَّهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ";
+    var FAL="قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ";
+    var NAS="قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلَهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ";
+    var IST="اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي، فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ";
+    var ADHKAR_DATA={
+        morning:[
+            {t:"آية الكرسي",c:1,x:AYK},{t:"سورة الإخلاص",c:3,x:IKH},{t:"سورة الفلق",c:3,x:FAL},{t:"سورة الناس",c:3,x:NAS},
+            {t:"سيد الاستغفار",c:1,x:IST},
+            {t:"",c:1,x:"أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ."},
+            {t:"",c:1,x:"اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ النُّشُورُ."},
+            {t:"",c:3,x:"رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ ﷺ نَبِيًّا."},
+            {t:"",c:7,x:"حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ، عَلَيْهِ تَوَكَّلْتُ، وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ."},
+            {t:"",c:3,x:"بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ."},
+            {t:"",c:1,x:"يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ، أَصْلِحْ لِي شَأْنِي كُلَّهُ، وَلَا تَكِلْنِي إِلَى نَفْسِي طَرْفَةَ عَيْنٍ."},
+            {t:"",c:100,x:"سُبْحَانَ اللَّهِ وَبِحَمْدِهِ."},
+            {t:"",c:100,x:"لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ."}
+        ],
+        evening:[
+            {t:"آية الكرسي",c:1,x:AYK},{t:"سورة الإخلاص",c:3,x:IKH},{t:"سورة الفلق",c:3,x:FAL},{t:"سورة الناس",c:3,x:NAS},
+            {t:"سيد الاستغفار",c:1,x:IST},
+            {t:"",c:1,x:"أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ."},
+            {t:"",c:1,x:"اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ الْمَصِيرُ."},
+            {t:"",c:3,x:"رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ ﷺ نَبِيًّا."},
+            {t:"",c:3,x:"أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ."},
+            {t:"",c:7,x:"حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ، عَلَيْهِ تَوَكَّلْتُ، وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ."},
+            {t:"",c:3,x:"بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ."},
+            {t:"",c:100,x:"سُبْحَانَ اللَّهِ وَبِحَمْدِهِ."}
+        ]
+    };
+    function renderAdhkar(type){
+        var wrap=document.getElementById("adhkarContent"); if(!wrap) return;
+        wrap.innerHTML = ADHKAR_DATA[type].map(function(d){
+            return '<div class="sound-card" style="flex-direction:column;align-items:stretch;gap:8px;">'+
+              '<div style="display:flex;justify-content:space-between;align-items:center;">'+(d.t?'<strong style="color:#00d4ff;font-size:13px;">'+d.t+'</strong>':'<span></span>')+'<span class="bestday-badge busy">×'+d.c+'</span></div>'+
+              '<div style="font-size:14px;line-height:2;color:#e6edf7;text-align:center;font-weight:700;">'+d.x+'</div></div>';
+        }).join("");
+    }
+    document.querySelectorAll(".adhkar-tab").forEach(function(b){
+        b.onclick=function(){
+            document.querySelectorAll(".adhkar-tab").forEach(function(x){ x.style.background="#12233c"; });
+            this.style.background="";
+            renderAdhkar(this.dataset.adhkar);
+        };
+    });
+    renderAdhkar("morning");
     /* ========================= INIT ========================== */
     updateStreak();
     updateTimerDisplay();
