@@ -497,6 +497,16 @@
         .app-toast.toast-success { border-color: #1f5b3f; background: linear-gradient(135deg,#0d1726,#0d1f18); }
         .app-toast.toast-warning { border-color: #5a4a1f; background: linear-gradient(135deg,#0d1726,#241d0d); }
         .app-toast.toast-danger  { border-color: #5a2a34; background: linear-gradient(135deg,#0d1726,#22111a); }
+        .app-toast.toast-prayer {
+            border: 1px solid #b8934a; background: linear-gradient(135deg,#1a1608,#241d0d 55%,#14200f);
+            box-shadow: 0 14px 34px rgba(0,0,0,.55), 0 0 0 1px rgba(184,147,74,.15) inset;
+            max-width: 420px;
+        }
+        .app-toast.toast-prayer .toast-icon { font-size: 24px; filter: drop-shadow(0 0 6px rgba(212,175,90,.5)); }
+        .app-toast.toast-prayer .toast-msg { color: #f2e6c9; font-size: 14px; }
+        .app-toast.toast-prayer .toast-close { color: #b8934a; }
+        body.light-mode .app-toast.toast-prayer { background: linear-gradient(135deg,#fdf6e6,#fefaf0); border-color: #d4af5a; }
+        body.light-mode .app-toast.toast-prayer .toast-msg { color: #5c4a1f; }
         body.light-mode .app-toast { background: #fff; border-color: #dbe4f0; }
         body.light-mode .app-toast .toast-msg { color: #0f172a; }
 
@@ -1070,7 +1080,7 @@ document.addEventListener("DOMContentLoaded", function () {
         duration = duration || 4200;
         var el = document.createElement("div");
         el.className = "app-toast toast-" + type;
-        var iconMap = { info: "ℹ️", success: "✅", warning: "⚠️", danger: "⛔" };
+        var iconMap = { info: "ℹ️", success: "✅", warning: "⚠️", danger: "⛔", prayer: "🕌" };
         el.innerHTML = '<span class="toast-icon">' + (iconMap[type] || "ℹ️") + '</span><span class="toast-msg"></span><button class="toast-close">✕</button>';
         el.querySelector(".toast-msg").textContent = message;
         toastStack.appendChild(el);
@@ -1762,7 +1772,9 @@ document.addEventListener("DOMContentLoaded", function () {
         { name: "شمال سيناء", lat: 31.1316, lng: 33.7984 },
         { name: "سوهاج", lat: 26.5569, lng: 31.6948 }
     ];
-    var EGYPT_TZ = 2; // UTC+2 (Egypt Standard Time)
+    // NOTE: no hardcoded UTC offset — Egypt observes DST (April–October), so we always read the
+    // real current offset straight from the device clock. This self-corrects automatically.
+    function currentUtcOffsetHours() { return -new Date().getTimezoneOffset() / 60; }
     var PRAYER_NAMES = { fajr: "الفجر", sunrise: "الشروق", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" };
 
     function dtr(d) { return d * Math.PI / 180; }
@@ -1848,7 +1860,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var gov = GOVERNORATES.find(function (g) { return g.name === govName; }) || GOVERNORATES[0];
         localStorage.setItem("focusGovernorate", gov.name);
         var now = new Date();
-        todayPrayerTimes = computePrayerTimes(now.getFullYear(), now.getMonth() + 1, now.getDate(), gov.lat, gov.lng, EGYPT_TZ);
+        todayPrayerTimes = computePrayerTimes(now.getFullYear(), now.getMonth() + 1, now.getDate(), gov.lat, gov.lng, currentUtcOffsetHours());
         var order = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
         var nowHM = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
         prayerGrid.innerHTML = order.map(function (k) {
@@ -1892,7 +1904,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
             } catch (e) {}
         }
-        var dismiss = showToast("🕌 حان الآن أذان " + prayerLabel, "info", 15000);
+        var dismiss = showToast("🕌 حان الآن أذان " + prayerLabel, "prayer", 15000);
         var stopBtn = document.createElement("button");
         stopBtn.textContent = "⏹ إيقاف الأذان";
         stopBtn.style.cssText = "margin-top:8px; padding:7px 14px; border-radius:10px; border:1px solid #1a293e; background:transparent; color:#9db0cc; font-size:12px; font-weight:800; cursor:pointer;";
@@ -1904,7 +1916,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (("Notification" in window) && Notification.permission === "granted") {
             try { new Notification(title, { body: body, icon: "icon-192.png" }); } catch (e) {}
         }
-        showToast(body, "info", 8000);
+        showToast(body, "prayer", 9000);
         var a = alarmAudio;
         if (a) { a.currentTime = 0; a.play().catch(function () {}); setTimeout(function () { a.pause(); a.currentTime = 0; }, 6000); }
     }
@@ -1925,7 +1937,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     playAthan(PRAYER_NAMES[k]);
                     if (isFullFocus && isRunning) {
                         applyFreeExit(); // treat as a prayer break, never a penalized exit
-                        showToast("⏸️ إيقفنا وضع التركيز الكامل مؤقتًا لوقت الصلاة — ابدأ تاني بعد ما تصلي.", "info", 9000);
+                        showToast("⏸️ إيقفنا وضع التركيز الكامل مؤقتًا لوقت الصلاة — ابدأ تاني بعد ما تصلي.", "prayer", 9000);
                     }
                 }
             }
