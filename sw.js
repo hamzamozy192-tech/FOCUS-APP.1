@@ -1,5 +1,5 @@
 /* FOCUS service worker - offline support (all assets are local, no internet needed) */
-var CACHE = "focus-cache-v12";
+var CACHE = "focus-cache-v13";
 
 var ASSETS = [
   "./",
@@ -53,6 +53,8 @@ self.addEventListener("activate", function (e) {
 
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
+    var u = new URL(e.request.url);
+  if (u.pathname.indexOf("/api/") === 0 || u.hostname.indexOf("aladhan") !== -1) return;
   e.respondWith(
     caches.match(e.request).then(function (cached) {
       if (cached) return cached;
